@@ -1,0 +1,13 @@
+aiogram==3.7.0
+telethon==1.36.0
+sqlalchemy==2.0.30
+aiosqlite==0.20.0
+python-dotenv==1.0.1
+cryptg==0.4.0
+greenlet==3.0.3
+
+# --- For production (1k+ users) ---
+# Uncomment these and set DATABASE_URL to postgresql+asyncpg://...
+# asyncpg==0.29.0
+# Switch FSM storage to Redis:
+# redis==5.0.4
