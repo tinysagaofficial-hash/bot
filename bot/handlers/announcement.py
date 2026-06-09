@@ -144,7 +144,11 @@ async def start_announce(message: Message, state: FSMContext, session: AsyncSess
         await message.answer("⚠️ Avval /start orqali ro'yxatdan o'ting!")
         return
     if not _is_active(user):
-        await message.answer("❌ Sinov muddatingiz tugagan.\nPremium obuna uchun admin bilan bog'laning.")
+        from config import ADMIN_USERNAME
+        await message.answer(
+            f"❌ Sinov muddatingiz tugagan.\n"
+            f"Obuna uchun {ADMIN_USERNAME} bilan bog'laning."
+        )
         return
 
     account = await session.scalar(

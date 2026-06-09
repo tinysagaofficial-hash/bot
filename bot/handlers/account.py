@@ -55,7 +55,8 @@ async def add_account(message: Message, state: FSMContext, session: AsyncSession
         await message.answer("⚠️ Avval /start orqali ro'yxatdan o'ting!")
         return
     if not _user_is_active(user):
-        await message.answer("❌ Sinov muddatingiz tugagan. Admin bilan bog'laning.")
+        from config import ADMIN_USERNAME
+        await message.answer(f"❌ Sinov muddatingiz tugagan. Obuna uchun {ADMIN_USERNAME} bilan bog'laning.")
         return
 
     await state.set_state(AccountFSM.phone)

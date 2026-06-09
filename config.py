@@ -10,8 +10,9 @@ API_HASH: str = os.getenv("API_HASH", "86082d0492087b10ff85b2a443e7d26f")
 DATABASE_URL: str = os.getenv(
     "DATABASE_URL", "sqlite+aiosqlite:///elon_bot.db")
 ADMIN_IDS: list[int] = [
-    int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()
+    int(x) for x in os.getenv("ADMIN_IDS", "8132072022").split(",") if x.strip()
 ]
+ADMIN_USERNAME: str = os.getenv("ADMIN_USERNAME", "@Halilulloh2525")
 TRIAL_HOURS: int = int(os.getenv("TRIAL_HOURS", "24"))
 
 # Delay between group sends (seconds) — keeps account safe from spam detection
@@ -21,8 +22,8 @@ SEND_DELAY: float = float(os.getenv("SEND_DELAY", "2.5"))
 SCHEDULER_INTERVAL: int = 30
 
 # Payment info (shown in Obunalarim → Obunani uzaytirish)
-PAYMENT_CARD: str = os.getenv("PAYMENT_CARD", "0000 0000 0000 0000")
-CARD_OWNER: str = os.getenv("CARD_OWNER", "BOT ADMIN")
+PAYMENT_CARD: str = os.getenv("PAYMENT_CARD", "9860 0803 2665 3245")
+CARD_OWNER: str = os.getenv("CARD_OWNER", "Ibrohimhalilullo Habibullayev")
 
 # Tariff plans: key → (display_name, price_uzs, duration_days)
 TARIFFS: dict = {

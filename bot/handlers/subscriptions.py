@@ -25,7 +25,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import ADMIN_IDS, CARD_OWNER, PAYMENT_CARD, TARIFFS
+from config import ADMIN_IDS, ADMIN_USERNAME, CARD_OWNER, PAYMENT_CARD, TARIFFS
 from database.models import Announcement, AnnouncementStatus, TelegramAccount, User
 from bot.keyboards.inline import cancel_payment_kb, subscription_kb, tariff_kb
 from bot.keyboards.reply import main_menu
@@ -82,6 +82,11 @@ async def subscriptions(message: Message, session: AsyncSession) -> None:
         )
     ))
 
+    now = datetime.utcnow()
+    expired = not user.is_premium and (
+        not user.trial_expires_at or user.trial_expires_at <= now
+    )
+
     text = (
         "💎 <b>Obunalarim</b>\n\n"
         f"📊 Aktiv xabarlar: {active_count} ta\n"
@@ -90,6 +95,8 @@ async def subscriptions(message: Message, session: AsyncSession) -> None:
         f"📅 Boshlandi: {_fmt_date(user.created_at)}\n"
         f"📅 Tugadi: {_fmt_date(user.trial_expires_at)}\n"
     )
+    if expired:
+        text += f"\n⚠️ Obunangizni uzaytirish uchun {ADMIN_USERNAME} bilan bog'laning."
 
     await message.answer(text, reply_markup=subscription_kb(True), parse_mode="HTML")
 
