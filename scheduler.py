@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 from config import SCHEDULER_INTERVAL, SEND_DELAY
 from database.models import (
     Announcement, AnnouncementGroup, AnnouncementSend,
-    AnnouncementStatus, MessageType, TelegramAccount, Group,
+    AnnouncementStatus, MessageType, TelegramAccount, Group, User,
 )
 from userbot import manager
 
@@ -23,6 +23,17 @@ logger = logging.getLogger(__name__)
 
 
 async def _send_one(ann: Announcement, session: AsyncSession, bot: Bot) -> None:
+    # Auto-stop if user's subscription expired
+    user = await session.get(User, ann.user_id)
+    if user:
+        now = datetime.utcnow()
+        if not user.is_premium and (not user.trial_expires_at or user.trial_expires_at <= now):
+            ann.is_active = False
+            ann.status = AnnouncementStatus.stopped
+            await session.commit()
+            logger.info("Auto-stopped ann %s: user %s subscription expired", ann.id, ann.user_id)
+            return
+
     account = await session.get(TelegramAccount, ann.account_id)
     if not account or not account.session_string:
         logger.warning("No account for announcement %s", ann.id)
