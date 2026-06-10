@@ -28,7 +28,7 @@ CARD_OWNER: str = os.getenv("CARD_OWNER", "Ibrohimhalilullo Habibullayev")
 # Admin web panel credentials
 ADMIN_PANEL_USER: str = os.getenv("ADMIN_PANEL_USER", "admin")
 ADMIN_PANEL_PASS: str = os.getenv("ADMIN_PANEL_PASS", "elon2025")
-ADMIN_PANEL_PORT: int = int(os.getenv("ADMIN_PANEL_PORT", "8080"))
+ADMIN_PANEL_PORT: int = int(os.getenv("PORT", os.getenv("ADMIN_PANEL_PORT", "8080")))
 
 # Tariff plans: key → (display_name, price_uzs, duration_days)
 TARIFFS: dict = {
