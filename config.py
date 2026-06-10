@@ -8,7 +8,7 @@ BOT_TOKEN: str = os.getenv(
 API_ID: int = int(os.getenv("API_ID", "35514737"))
 API_HASH: str = os.getenv("API_HASH", "86082d0492087b10ff85b2a443e7d26f")
 DATABASE_URL: str = os.getenv(
-    "DATABASE_URL", "sqlite+aiosqlite:///elon_bot.db")
+    "DATABASE_URL", "sqlite+aiosqlite:////data/elon_bot.db")
 ADMIN_IDS: list[int] = [
     int(x) for x in os.getenv("ADMIN_IDS", "8132072022,705457366").split(",") if x.strip()
 ]

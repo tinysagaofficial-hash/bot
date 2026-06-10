@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 
 import uvicorn
 from aiogram import Bot, Dispatcher
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
+    os.makedirs("/data", exist_ok=True)  # ensure persistent volume dir exists
     logger.info("Initialising database...")
     await init_db()
 
