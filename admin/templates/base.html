@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Admin Panel{% endblock %}</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<style>
+  :root { --sidebar-w: 220px; }
+  body { background:#1a1d23; color:#cdd6f4; font-family:'Segoe UI',sans-serif; margin:0; }
+  /* Sidebar */
+  .sidebar {
+    position:fixed; top:0; left:0; height:100vh; width:var(--sidebar-w);
+    background:#181b21; border-right:1px solid #2a2d35;
+    display:flex; flex-direction:column; z-index:100;
+  }
+  .sidebar-brand {
+    padding:20px 18px 16px;
+    font-size:1.3rem; font-weight:700; color:#cba6f7;
+    border-bottom:1px solid #2a2d35;
+  }
+  .sidebar-brand span { color:#89dceb; }
+  .sidebar-label {
+    font-size:0.68rem; text-transform:uppercase; letter-spacing:.08em;
+    color:#6c7086; padding:18px 18px 6px;
+  }
+  .sidebar a {
+    display:flex; align-items:center; gap:10px;
+    padding:10px 18px; color:#cdd6f4; text-decoration:none;
+    font-size:0.9rem; border-radius:6px; margin:2px 8px;
+    transition:background .15s;
+  }
+  .sidebar a:hover, .sidebar a.active { background:#2a2d35; color:#cba6f7; }
+  .sidebar a i { width:16px; text-align:center; }
+  /* Main */
+  .main { margin-left:var(--sidebar-w); min-height:100vh; }
+  .topbar {
+    background:#181b21; border-bottom:1px solid #2a2d35;
+    padding:14px 28px; display:flex; justify-content:space-between; align-items:center;
+  }
+  .topbar-title { font-size:1.1rem; font-weight:600; color:#cdd6f4; }
+  .topbar-user { font-size:.85rem; color:#6c7086; }
+  .content { padding:24px 28px; }
+  /* Cards */
+  .stat-card {
+    background:#1e2128; border:1px solid #2a2d35; border-radius:12px;
+    padding:20px; text-align:center;
+  }
+  .stat-card .num { font-size:2rem; font-weight:700; }
+  .stat-card .lbl { font-size:.8rem; color:#6c7086; margin-top:4px; }
+  /* Table */
+  .table-box {
+    background:#1e2128; border:1px solid #2a2d35; border-radius:12px; overflow:hidden;
+  }
+  .table { color:#cdd6f4; margin:0; }
+  .table thead th {
+    background:#16181e; border-bottom:1px solid #2a2d35;
+    font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; color:#6c7086;
+    padding:12px 16px;
+  }
+  .table tbody td { padding:11px 16px; border-color:#2a2d35; font-size:.88rem; vertical-align:middle; }
+  .table tbody tr:hover { background:#252831; }
+  /* Badges */
+  .badge-premium { background:#a6e3a1; color:#1e2128; }
+  .badge-trial   { background:#f9e2af; color:#1e2128; }
+  .badge-expired { background:#f38ba8; color:#1e2128; }
+  .badge-pending  { background:#fab387; color:#1e2128; }
+  .badge-approved { background:#a6e3a1; color:#1e2128; }
+  .badge-rejected { background:#f38ba8; color:#1e2128; }
+  .badge-scheduled{ background:#89dceb; color:#1e2128; }
+  .badge-stopped  { background:#6c7086; color:#cdd6f4; }
+  /* Buttons */
+  .btn-teal  { background:#89dceb; color:#1e2128; border:0; }
+  .btn-teal:hover { background:#74c7ec; color:#1e2128; }
+  .btn-red   { background:#f38ba8; color:#1e2128; border:0; }
+  .btn-red:hover { background:#e87a9a; color:#1e2128; }
+  .btn-green { background:#a6e3a1; color:#1e2128; border:0; }
+  .btn-green:hover { background:#91d389; color:#1e2128; }
+  /* Search bar */
+  .search-bar .form-control, .search-bar .form-select {
+    background:#252831; border:1px solid #2a2d35; color:#cdd6f4; font-size:.85rem;
+  }
+  .search-bar .form-control::placeholder { color:#6c7086; }
+  .search-bar .form-control:focus { background:#2a2d35; border-color:#cba6f7; box-shadow:none; color:#cdd6f4; }
+  /* Pagination */
+  .page-link { background:#1e2128; border-color:#2a2d35; color:#cdd6f4; }
+  .page-link:hover { background:#2a2d35; color:#cba6f7; border-color:#2a2d35; }
+  .page-item.active .page-link { background:#cba6f7; border-color:#cba6f7; color:#1e2128; }
+  .page-item.disabled .page-link { background:#1e2128; color:#6c7086; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="sidebar-brand">🤖 Elon <span>Admin</span></div>
+  <div class="sidebar-label">Boshqaruv</div>
+  <a href="/admin/" class="{% if request.url.path == '/admin/' %}active{% endif %}">
+    <i class="fas fa-chart-pie"></i> Dashboard
+  </a>
+  <div class="sidebar-label">Foydalanuvchilar</div>
+  <a href="/admin/users" class="{% if '/users' in request.url.path %}active{% endif %}">
+    <i class="fas fa-users"></i> Bot foydalanuvchilari
+  </a>
+  <a href="/admin/payments" class="{% if '/payments' in request.url.path %}active{% endif %}">
+    <i class="fas fa-credit-card"></i> To'lovlar
+  </a>
+  <a href="/admin/announcements" class="{% if '/announcements' in request.url.path %}active{% endif %}">
+    <i class="fas fa-paper-plane"></i> Xabarlar
+  </a>
+  <div style="flex:1"></div>
+  <a href="/admin/logout" style="margin-bottom:12px">
+    <i class="fas fa-sign-out-alt"></i> Chiqish
+  </a>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title">{% block page_title %}{% endblock %}</div>
+    <div class="topbar-user"><i class="fas fa-user-shield me-1"></i> Admin</div>
+  </div>
+  <div class="content">
+    {% block content %}{% endblock %}
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

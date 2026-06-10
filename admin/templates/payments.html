@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}To'lovlar — Admin{% endblock %}
+{% block page_title %}To'lovlar <span class="badge" style="background:#2a2d35;color:#6c7086;font-size:.75rem">{{ total }}</span>{% endblock %}
+{% block content %}
+
+<!-- Filter tabs -->
+<div class="mb-3 d-flex gap-2">
+  {% for s, lbl, col in [('all','Barchasi','#6c7086'), ('pending','Kutilmoqda','#fab387'), ('approved','Tasdiqlangan','#a6e3a1'), ('rejected','Rad etilgan','#f38ba8')] %}
+  <a href="/admin/payments?status={{ s }}" class="btn btn-sm"
+     style="background:{% if status_filter == s %}{{ col }}{% else %}#2a2d35{% endif %};
+            color:{% if status_filter == s %}#1e2128{% else %}#cdd6f4{% endif %};border:0">
+    {{ lbl }}
+  </a>
+  {% endfor %}
+</div>
+
+<div class="table-box">
+  <table class="table table-hover">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Foydalanuvchi</th>
+        <th>Telefon</th>
+        <th>Tarif</th>
+        <th>Summa</th>
+        <th>Holat</th>
+        <th>Sana</th>
+        <th>Amallar</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in payments %}
+      <tr>
+        <td style="color:#6c7086">{{ p.id }}</td>
+        <td>
+          {% if p.user %}
+            <div>{{ p.user.full_name or '—' }}</div>
+            <div style="font-size:.75rem;color:#6c7086">{{ p.user.telegram_id }}</div>
+          {% else %}—{% endif %}
+        </td>
+        <td>{{ p.user.phone if p.user else '—' }}</td>
+        <td>{{ p.tariff_name }}</td>
+        <td style="color:#a6e3a1">
+          {% if p.amount %}{{ "{:,}".format(p.amount).replace(",", " ") }} so'm{% else %}—{% endif %}
+        </td>
+        <td>
+          {% if p.status == 'pending' %}
+            <span class="badge badge-pending">⏳ Kutilmoqda</span>
+          {% elif p.status == 'approved' %}
+            <span class="badge badge-approved">✅ Tasdiqlangan</span>
+          {% else %}
+            <span class="badge badge-rejected">❌ Rad etilgan</span>
+          {% endif %}
+        </td>
+        <td style="font-size:.78rem;color:#6c7086">
+          {{ p.created_at.strftime('%d.%m.%Y %H:%M') if p.created_at else '—' }}
+        </td>
+        <td>
+          {% if p.status == 'pending' %}
+          <button class="btn btn-green btn-sm" data-bs-toggle="modal" data-bs-target="#approveModal{{ p.id }}">
+            ✅
+          </button>
+          <form method="POST" action="/admin/payments/{{ p.id }}/reject" style="display:inline">
+            <button type="submit" class="btn btn-red btn-sm" onclick="return confirm('Rad etish?')">❌</button>
+          </form>
+          {% else %}
+          <span style="color:#6c7086;font-size:.78rem">{{ p.processed_at.strftime('%d.%m.%Y') if p.processed_at else '—' }}</span>
+          {% endif %}
+        </td>
+      </tr>
+
+      <!-- Approve Modal -->
+      <div class="modal fade" id="approveModal{{ p.id }}" tabindex="-1">
+        <div class="modal-dialog modal-sm">
+          <div class="modal-content" style="background:#1e2128;border:1px solid #2a2d35;color:#cdd6f4">
+            <div class="modal-header" style="border-color:#2a2d35">
+              <h6 class="modal-title">To'lovni tasdiqlash</h6>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="/admin/payments/{{ p.id }}/approve">
+              <div class="modal-body">
+                <p style="font-size:.85rem;color:#6c7086">
+                  Foydalanuvchi: <strong style="color:#cdd6f4">{{ p.user.full_name if p.user else '?' }}</strong>
+                </p>
+                <label class="mb-1" style="font-size:.85rem;color:#6c7086">Obuna muddati (kun)</label>
+                <select name="days" class="form-select" style="background:#252831;border-color:#2a2d35;color:#cdd6f4">
+                  <option value="30">30 kun (1 oy)</option>
+                  <option value="90">90 kun (3 oy)</option>
+                  <option value="180">180 kun (6 oy)</option>
+                </select>
+              </div>
+              <div class="modal-footer" style="border-color:#2a2d35">
+                <button type="submit" class="btn btn-green btn-sm">✅ Tasdiqlash</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if pages > 1 %}
+<nav class="mt-3">
+  <ul class="pagination pagination-sm">
+    <li class="page-item {% if page == 1 %}disabled{% endif %}">
+      <a class="page-link" href="?status={{ status_filter }}&page={{ page - 1 }}">‹</a>
+    </li>
+    {% for p in range(1, pages + 1) %}
+    <li class="page-item {% if p == page %}active{% endif %}">
+      <a class="page-link" href="?status={{ status_filter }}&page={{ p }}">{{ p }}</a>
+    </li>
+    {% endfor %}
+    <li class="page-item {% if page == pages %}disabled{% endif %}">
+      <a class="page-link" href="?status={{ status_filter }}&page={{ page + 1 }}">›</a>
+    </li>
+  </ul>
+</nav>
+{% endif %}
+
+{% endblock %}

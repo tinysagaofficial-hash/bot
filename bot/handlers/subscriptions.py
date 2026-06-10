@@ -26,7 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import ADMIN_IDS, ADMIN_USERNAME, CARD_OWNER, PAYMENT_CARD, TARIFFS
-from database.models import Announcement, AnnouncementStatus, TelegramAccount, User
+from database.models import Announcement, AnnouncementStatus, PaymentRequest, TelegramAccount, User
 from bot.keyboards.inline import cancel_payment_kb, subscription_kb, tariff_kb
 from bot.keyboards.reply import main_menu
 
@@ -210,6 +210,19 @@ async def receive_receipt(message: Message, state: FSMContext, session: AsyncSes
     data = await state.get_data()
     user = await session.scalar(select(User).where(User.telegram_id == message.from_user.id))
 
+    # Save payment request to DB
+    if user:
+        pr = PaymentRequest(
+            user_id=user.id,
+            tariff_key=data.get("tariff_key"),
+            tariff_name=data.get("tariff_name", "—"),
+            amount=data.get("tariff_price", 0),
+            receipt_file_id=message.photo[-1].file_id,
+            status="pending",
+        )
+        session.add(pr)
+        await session.commit()
+
     # Forward receipt to admins
     for admin_id in ADMIN_IDS:
         try:
@@ -219,7 +232,8 @@ async def receive_receipt(message: Message, state: FSMContext, session: AsyncSes
                 f"👤 Foydalanuvchi: {message.from_user.full_name}\n"
                 f"📱 ID: <code>{message.from_user.id}</code>\n"
                 f"📞 Telefon: +{user.phone if user else '?'}\n"
-                f"🏷 {tariff_info}"
+                f"🏷 {tariff_info}\n\n"
+                f"✅ Admin paneldan tasdiqlang: /admin"
             )
             await message.bot.send_photo(
                 admin_id,

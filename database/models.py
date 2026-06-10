@@ -100,6 +100,24 @@ class AnnouncementGroup(Base):
     group = relationship("Group")
 
 
+class PaymentRequest(Base):
+    """Tracks every subscription payment receipt submitted by users."""
+    __tablename__ = "payment_requests"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    tariff_key = Column(String(20), nullable=True)   # e.g. "1_oy"
+    tariff_name = Column(String(50), nullable=True)
+    amount = Column(Integer, default=0)              # in UZS
+    receipt_file_id = Column(String(200), nullable=True)  # Telegram photo file_id
+    status = Column(String(20), default="pending")   # pending / approved / rejected
+    admin_note = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    processed_at = Column(DateTime, nullable=True)
+
+    user = relationship("User")
+
+
 class AnnouncementSend(Base):
     __tablename__ = "announcement_sends"
 
