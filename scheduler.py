@@ -59,35 +59,39 @@ async def _send_one(ann: Announcement, session: AsyncSession, bot: Bot) -> None:
         select(AnnouncementGroup).where(AnnouncementGroup.announcement_id == ann.id)
     ))
 
-    for link in links:
-        group = await session.get(Group, link.group_id)
-        if not group:
-            continue
-        try:
-            if photo_bytes:
-                photo_bytes.seek(0)
-            msg_id = await manager.send_to_group(
-                client, group.chat_id, ann.text,
-                photo=io.BytesIO(photo_bytes.getvalue()) if photo_bytes else None,
-            )
-            session.add(AnnouncementSend(
-                announcement_id=ann.id,
-                group_id=group.id,
-                message_id=msg_id,
-                status="sent",
-                sent_at=datetime.utcnow(),
-            ))
-            logger.info("Sent ann %s to group %s (msg %s)", ann.id, group.chat_id, msg_id)
-        except Exception as e:
-            session.add(AnnouncementSend(
-                announcement_id=ann.id,
-                group_id=group.id,
-                status="failed",
-                error=str(e)[:200],
-            ))
-            logger.warning("Failed ann %s → group %s: %s", ann.id, group.chat_id, e)
+    try:
+        for link in links:
+            group = await session.get(Group, link.group_id)
+            if not group:
+                continue
+            try:
+                if photo_bytes:
+                    photo_bytes.seek(0)
+                msg_id = await manager.send_to_group(
+                    client, group.chat_id, ann.text,
+                    photo=io.BytesIO(photo_bytes.getvalue()) if photo_bytes else None,
+                )
+                session.add(AnnouncementSend(
+                    announcement_id=ann.id,
+                    group_id=group.id,
+                    message_id=msg_id,
+                    status="sent",
+                    sent_at=datetime.utcnow(),
+                ))
+                logger.info("Sent ann %s to group %s (msg %s)", ann.id, group.chat_id, msg_id)
+            except Exception as e:
+                session.add(AnnouncementSend(
+                    announcement_id=ann.id,
+                    group_id=group.id,
+                    status="failed",
+                    error=str(e)[:200],
+                ))
+                logger.warning("Failed ann %s → group %s: %s", ann.id, group.chat_id, e)
 
-        await asyncio.sleep(SEND_DELAY)
+            await asyncio.sleep(SEND_DELAY)
+    finally:
+        # Always disconnect after send cycle — frees RAM (critical for 1k+ users)
+        await manager.disconnect_client(account.id)
 
     # Schedule next run
     now = datetime.utcnow()
