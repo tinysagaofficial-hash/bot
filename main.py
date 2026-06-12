@@ -8,7 +8,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from config import BOT_TOKEN, ADMIN_PANEL_PORT
+from config import BOT_TOKEN, ADMIN_PANEL_PORT, REDIS_URL
 from database.db import async_session_factory, init_db
 from bot.router import main_router
 from bot.middlewares.db import DbMiddleware
@@ -27,11 +27,19 @@ async def main() -> None:
     logger.info("Initialising database...")
     await init_db()
 
+    if REDIS_URL:
+        from aiogram.fsm.storage.redis import RedisStorage
+        storage = RedisStorage.from_url(REDIS_URL)
+        logger.info("FSM storage: Redis")
+    else:
+        storage = MemoryStorage()
+        logger.info("FSM storage: Memory (add REDIS_URL for production)")
+
     bot = Bot(
         token=BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
-    dp = Dispatcher(storage=MemoryStorage())
+    dp = Dispatcher(storage=storage)
     dp.update.middleware(DbMiddleware(async_session_factory))
     dp.include_router(main_router)
 
