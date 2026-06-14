@@ -6,6 +6,7 @@ Finds due announcements (is_active=True, next_send_at <= now) and sends them.
 import asyncio
 import io
 import logging
+import random
 from datetime import datetime, timedelta
 
 from aiogram import Bot
@@ -88,7 +89,7 @@ async def _send_one(ann: Announcement, session: AsyncSession, bot: Bot) -> None:
                 ))
                 logger.warning("Failed ann %s → group %s: %s", ann.id, group.chat_id, e)
 
-            await asyncio.sleep(SEND_DELAY)
+            await asyncio.sleep(SEND_DELAY + random.uniform(0, 2))
     finally:
         # Always disconnect after send cycle — frees RAM (critical for 1k+ users)
         await manager.disconnect_client(account.id)

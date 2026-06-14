@@ -176,7 +176,11 @@ async def start_announce(message: Message, state: FSMContext, session: AsyncSess
         "• 🖼 Rasm + caption (izoh)\n\n"
         "⚠️ <b>Diqqat:</b>\n"
         "Rasm yuborishingiz zarur bo'lsa, caption (izoh) yozish MAJBURIY\n"
-        "Captionsiz rasmlar qabul qilinmaydi",
+        "Captionsiz rasmlar qabul qilinmaydi\n\n"
+        "🛡 <b>Spam oldini olish uchun:</b>\n"
+        "• Har safar xabar matnini biroz o'zgartiring\n"
+        "• Bir vaqtda 30 tadan kam guruh tanlang\n"
+        "• Kamida 30 daqiqa oraliq tanlang",
         reply_markup=cancel_only(),
         parse_mode="HTML",
     )
