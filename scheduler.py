@@ -54,9 +54,23 @@ async def _send_one(ann_id: int, scheduled_time: datetime, session_factory: asyn
             client = await manager.get_client(account.id, account.session_string)
         except Exception as e:
             logger.error("Client error for ann %s: %s", ann.id, e)
-            # Still schedule next send so it retries
-            ann.next_send_at = scheduled_time + timedelta(minutes=ann.interval_minutes)
+            # Mark account as inactive and notify user to re-add
+            account.is_active = False
+            account.session_string = None
+            ann.is_active = False
+            ann.status = AnnouncementStatus.stopped
             await session.commit()
+            try:
+                await bot.send_message(
+                    user.telegram_id,
+                    "⚠️ <b>Akkaunt sessiyasi tugagan!</b>\n\n"
+                    f"📱 +{account.phone} akkauntingiz bilan bog'lanib bo'lmadi.\n\n"
+                    "Iltimos, '➕ Akkaunt qo'shish' tugmasini bosib akkauntingizni qayta ulang. "
+                    "Shundan so'ng e'lonlaringiz yana ishlaydi.",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
             return
 
         # Download photo once if needed

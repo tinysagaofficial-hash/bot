@@ -25,7 +25,7 @@ from telethon.errors import (
     SessionPasswordNeededError,
 )
 
-from database.models import Group, TelegramAccount, User
+from database.models import Announcement, AnnouncementStatus, Group, TelegramAccount, User
 from userbot import manager
 from bot.keyboards.reply import cancel_only, main_menu
 
@@ -237,13 +237,29 @@ async def _save_account_and_groups(
                 )
             )
 
+    # Re-activate any stopped announcements for this account
+    stopped_anns = list(await session.scalars(
+        select(Announcement).where(
+            Announcement.account_id == account.id,
+            Announcement.status == AnnouncementStatus.stopped,
+        )
+    ))
+    reactivated = 0
+    for ann in stopped_anns:
+        ann.is_active = True
+        ann.status = AnnouncementStatus.scheduled
+        ann.next_send_at = datetime.utcnow()
+        reactivated += 1
+
     await session.commit()
     await state.clear()
 
+    reactivated_text = f"\n♻️ {reactivated} ta e'lon qayta faollashtirildi!" if reactivated > 0 else ""
     await message.answer(
         f"✅ <b>Akkaunt muvaffaqiyatli ulandi!</b>\n\n"
         f"📱 Telefon: {phone}\n"
-        f"👥 Guruhlar soni: {len(groups)} ta\n\n"
+        f"👥 Guruhlar soni: {len(groups)} ta"
+        f"{reactivated_text}\n\n"
         "Endi '📨 Elon berish' tugmasini bosing!",
         reply_markup=main_menu(),
         parse_mode="HTML",
