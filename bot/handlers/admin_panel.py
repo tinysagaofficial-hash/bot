@@ -152,16 +152,33 @@ async def adm_stats(cb: CallbackQuery, session: AsyncSession) -> None:
 # Users list
 # ──────────────────────────────────────────────────────────────
 
+PAGE_SIZE = 20
+
+
 @router.callback_query(F.data == "adm:users")
 async def adm_users(cb: CallbackQuery, session: AsyncSession) -> None:
+    await _show_users_page(cb, session, page=0)
+
+
+@router.callback_query(F.data.startswith("adm:users:"))
+async def adm_users_page(cb: CallbackQuery, session: AsyncSession) -> None:
+    if not is_admin(cb.from_user.id):
+        return
+    page = int(cb.data.split(":")[2])
+    await _show_users_page(cb, session, page)
+
+
+async def _show_users_page(cb: CallbackQuery, session: AsyncSession, page: int) -> None:
     if not is_admin(cb.from_user.id):
         return
 
+    total = (await session.scalar(select(func.count(User.id)))) or 0
     users = list(await session.scalars(
-        select(User).order_by(User.created_at.desc()).limit(15)
+        select(User).order_by(User.created_at.desc())
+        .offset(page * PAGE_SIZE).limit(PAGE_SIZE)
     ))
 
-    lines = ["👤 <b>Oxirgi 15 foydalanuvchi:</b>\n"]
+    lines = [f"👤 <b>Foydalanuvchilar ({total} ta) — sahifa {page + 1}:</b>\n"]
     for u in users:
         exp = u.trial_expires_at.strftime('%d.%m.%y') if u.trial_expires_at else '—'
         lines.append(
@@ -172,11 +189,20 @@ async def adm_users(cb: CallbackQuery, session: AsyncSession) -> None:
     b = InlineKeyboardBuilder()
     for u in users:
         b.button(
-            text=f"✉️ {u.full_name or u.telegram_id}",
+            text=f"✉️ {u.full_name or str(u.telegram_id)}",
             callback_data=f"adm:msg:{u.telegram_id}",
         )
-    b.button(text="◀️ Orqaga", callback_data="adm:main")
     b.adjust(2)
+
+    nav = InlineKeyboardBuilder()
+    if page > 0:
+        nav.button(text="◀️ Oldingi", callback_data=f"adm:users:{page - 1}")
+    if (page + 1) * PAGE_SIZE < total:
+        nav.button(text="Keyingi ▶️", callback_data=f"adm:users:{page + 1}")
+    nav.button(text="🏠 Orqaga", callback_data="adm:main")
+    nav.adjust(2)
+
+    b.attach(nav)
 
     await cb.message.edit_text(
         "\n".join(lines),
