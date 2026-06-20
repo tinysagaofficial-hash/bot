@@ -161,10 +161,11 @@ async def send_to_group(
     try:
         if photo:
             photo.seek(0)
+            photo.name = "photo.jpg"  # tells Telegram to treat it as photo not file
             msg = await client.send_file(
                 chat_id,
                 photo,
-                caption=text[:1024],  # Telegram caption limit
+                caption=text[:1024],
                 parse_mode="html",
                 force_document=False,
             )
