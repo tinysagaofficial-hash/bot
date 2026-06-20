@@ -1,18 +1,3 @@
-"""
-Telegram-based admin panel.
-Only accessible by user IDs listed in ADMIN_IDS.
-
-Commands:
-  /admin → opens admin menu
-
-Menu:
-  📊 Statistikalar   → stats
-  👤 Foydalanuvchilar → last 10 users + search
-  ➕ Obuna berish     → give subscription to a user
-  📋 To'lovlar        → pending payment requests
-  ◀️ Orqaga          → close
-"""
-
 from datetime import datetime, timedelta
 
 from aiogram import F, Router
@@ -31,47 +16,45 @@ from database.models import (
 )
 
 router = Router()
+PAGE_SIZE = 20
 
 
 class AdminFSM(StatesGroup):
-    waiting_user_id  = State()
-    waiting_days     = State()
-    waiting_message  = State()
+    waiting_user_id = State()
+    waiting_message = State()
 
-
-# ──────────────────────────────────────────────────────────────
-# Helpers
-# ──────────────────────────────────────────────────────────────
 
 def is_admin(uid: int) -> bool:
     return uid in ADMIN_IDS
 
 
-def admin_main_kb():
-    b = InlineKeyboardBuilder()
-    b.button(text="📊 Statistikalar",    callback_data="adm:stats")
-    b.button(text="👤 Foydalanuvchilar", callback_data="adm:users")
-    b.button(text="➕ Obuna berish",      callback_data="adm:give")
-    b.button(text="💳 To'lovlar",         callback_data="adm:pays")
-    b.button(text="◀️ Yopish",           callback_data="adm:close")
-    b.adjust(1)
-    return b.as_markup()
+def _status(u: User) -> str:
+    now = datetime.utcnow()
+    if u.is_premium:
+        return "💎 Premium"
+    if u.trial_expires_at and u.trial_expires_at > now:
+        remaining = (u.trial_expires_at - now).total_seconds() / 3600
+        return f"🎁 Sinov ({remaining:.0f}s)"
+    return "❌ Muddati tugagan"
 
 
-def back_kb():
-    b = InlineKeyboardBuilder()
-    b.button(text="◀️ Orqaga", callback_data="adm:main")
-    b.adjust(1)
-    return b.as_markup()
-
-
-def _user_status(u: User) -> str:
+def _status_icon(u: User) -> str:
     now = datetime.utcnow()
     if u.is_premium:
         return "💎"
     if u.trial_expires_at and u.trial_expires_at > now:
         return "🎁"
     return "❌"
+
+
+def admin_main_kb():
+    b = InlineKeyboardBuilder()
+    b.button(text="📊 Statistikalar",    callback_data="adm:stats")
+    b.button(text="👤 Foydalanuvchilar", callback_data="adm:users:0")
+    b.button(text="💳 To'lovlar",        callback_data="adm:pays")
+    b.button(text="◀️ Yopish",          callback_data="adm:close")
+    b.adjust(1)
+    return b.as_markup()
 
 
 # ──────────────────────────────────────────────────────────────
@@ -90,9 +73,10 @@ async def admin_cmd(message: Message) -> None:
 
 
 @router.callback_query(F.data == "adm:main")
-async def adm_main(cb: CallbackQuery) -> None:
+async def adm_main(cb: CallbackQuery, state: FSMContext) -> None:
     if not is_admin(cb.from_user.id):
         return
+    await state.clear()
     await cb.message.edit_text(
         "🔐 <b>Admin Panel</b>\n\nQuyidagi bo'limlardan birini tanlang:",
         reply_markup=admin_main_kb(),
@@ -124,7 +108,6 @@ async def adm_stats(cb: CallbackQuery, session: AsyncSession) -> None:
     ))) or 0
     expired = total - premium - trial
 
-    ann_total  = (await session.scalar(select(func.count(Announcement.id)))) or 0
     ann_active = (await session.scalar(select(func.count(Announcement.id)).where(
         Announcement.is_active == True,
         Announcement.status == AnnouncementStatus.scheduled,
@@ -133,44 +116,32 @@ async def adm_stats(cb: CallbackQuery, session: AsyncSession) -> None:
         PaymentRequest.status == "pending"
     ))) or 0
 
+    b = InlineKeyboardBuilder()
+    b.button(text="◀️ Orqaga", callback_data="adm:main")
+
     await cb.message.edit_text(
         "📊 <b>Statistikalar</b>\n\n"
         f"👥 Jami foydalanuvchi: <b>{total}</b>\n"
         f"💎 Premium: <b>{premium}</b>\n"
         f"🎁 Sinov muddatida: <b>{trial}</b>\n"
         f"❌ Muddati tugagan: <b>{expired}</b>\n\n"
-        f"📨 Jami xabarlar: <b>{ann_total}</b>\n"
-        f"🟢 Aktiv xabarlar: <b>{ann_active}</b>\n\n"
+        f"🟢 Aktiv e'lonlar: <b>{ann_active}</b>\n"
         f"💳 Kutilayotgan to'lovlar: <b>{pending_pay}</b>",
-        reply_markup=back_kb(),
+        reply_markup=b.as_markup(),
         parse_mode="HTML",
     )
     await cb.answer()
 
 
 # ──────────────────────────────────────────────────────────────
-# Users list
+# Users list (paginated)
 # ──────────────────────────────────────────────────────────────
 
-PAGE_SIZE = 20
-
-
-@router.callback_query(F.data == "adm:users")
-async def adm_users(cb: CallbackQuery, session: AsyncSession) -> None:
-    await _show_users_page(cb, session, page=0)
-
-
 @router.callback_query(F.data.startswith("adm:users:"))
-async def adm_users_page(cb: CallbackQuery, session: AsyncSession) -> None:
+async def adm_users(cb: CallbackQuery, session: AsyncSession) -> None:
     if not is_admin(cb.from_user.id):
         return
     page = int(cb.data.split(":")[2])
-    await _show_users_page(cb, session, page)
-
-
-async def _show_users_page(cb: CallbackQuery, session: AsyncSession, page: int) -> None:
-    if not is_admin(cb.from_user.id):
-        return
 
     total = (await session.scalar(select(func.count(User.id)))) or 0
     users = list(await session.scalars(
@@ -182,15 +153,15 @@ async def _show_users_page(cb: CallbackQuery, session: AsyncSession, page: int) 
     for u in users:
         exp = u.trial_expires_at.strftime('%d.%m.%y') if u.trial_expires_at else '—'
         lines.append(
-            f"{_user_status(u)} <code>{u.telegram_id}</code> "
-            f"— {u.full_name or '—'} | +{u.phone or '?'} | {exp}"
+            f"{_status_icon(u)} <code>{u.telegram_id}</code> "
+            f"— {u.full_name or '—'} | {exp}"
         )
 
     b = InlineKeyboardBuilder()
     for u in users:
         b.button(
-            text=f"✉️ {u.full_name or str(u.telegram_id)}",
-            callback_data=f"adm:msg:{u.telegram_id}",
+            text=f"{_status_icon(u)} {u.full_name or str(u.telegram_id)}",
+            callback_data=f"adm:user:{u.telegram_id}:{page}",
         )
     b.adjust(2)
 
@@ -199,30 +170,153 @@ async def _show_users_page(cb: CallbackQuery, session: AsyncSession, page: int) 
         nav.button(text="◀️ Oldingi", callback_data=f"adm:users:{page - 1}")
     if (page + 1) * PAGE_SIZE < total:
         nav.button(text="Keyingi ▶️", callback_data=f"adm:users:{page + 1}")
-    nav.button(text="🏠 Orqaga", callback_data="adm:main")
+    nav.button(text="🏠 Bosh menyu", callback_data="adm:main")
     nav.adjust(2)
 
     b.attach(nav)
+    await cb.message.edit_text("\n".join(lines), reply_markup=b.as_markup(), parse_mode="HTML")
+    await cb.answer()
+
+
+# ──────────────────────────────────────────────────────────────
+# User detail page
+# ──────────────────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("adm:user:"))
+async def adm_user_detail(cb: CallbackQuery, session: AsyncSession) -> None:
+    if not is_admin(cb.from_user.id):
+        return
+    parts = cb.data.split(":")
+    tg_id = int(parts[2])
+    page  = int(parts[3]) if len(parts) > 3 else 0
+
+    user = await session.scalar(select(User).where(User.telegram_id == tg_id))
+    if not user:
+        await cb.answer("Foydalanuvchi topilmadi!", show_alert=True)
+        return
+
+    exp = user.trial_expires_at.strftime('%d.%m.%Y') if user.trial_expires_at else '—'
+    acc_count = (await session.scalar(
+        select(func.count(TelegramAccount.id)).where(TelegramAccount.user_id == user.id)
+    )) or 0
+    ann_count = (await session.scalar(
+        select(func.count(Announcement.id)).where(Announcement.user_id == user.id)
+    )) or 0
+
+    b = InlineKeyboardBuilder()
+    b.button(text="💎 Obuna berish",    callback_data=f"adm:sub:{tg_id}:{page}")
+    b.button(text="✉️ Xabar yuborish",  callback_data=f"adm:msg:{tg_id}:{page}")
+    b.button(text="🚫 Bloklash" if user.is_active else "✅ Blokdan chiqarish",
+             callback_data=f"adm:block:{tg_id}:{page}")
+    b.button(text="◀️ Orqaga",          callback_data=f"adm:users:{page}")
+    b.adjust(2)
 
     await cb.message.edit_text(
-        "\n".join(lines),
+        f"👤 <b>Foydalanuvchi profili</b>\n\n"
+        f"📛 Ism: <b>{user.full_name or '—'}</b>\n"
+        f"🆔 ID: <code>{user.telegram_id}</code>\n"
+        f"📱 Telefon: +{user.phone or '?'}\n"
+        f"📊 Holat: <b>{_status(user)}</b>\n"
+        f"📅 Tugash: <b>{exp}</b>\n"
+        f"📱 Akkauntlar: <b>{acc_count} ta</b>\n"
+        f"📨 E'lonlar: <b>{ann_count} ta</b>\n"
+        f"🗓 Ro'yxatdan: <b>{user.created_at.strftime('%d.%m.%Y')}</b>",
         reply_markup=b.as_markup(),
         parse_mode="HTML",
     )
     await cb.answer()
 
 
+# ──────────────────────────────────────────────────────────────
+# Give subscription (from user detail — no FSM needed)
+# ──────────────────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("adm:sub:"))
+async def adm_sub_pick(cb: CallbackQuery, session: AsyncSession) -> None:
+    if not is_admin(cb.from_user.id):
+        return
+    parts = cb.data.split(":")
+    tg_id = int(parts[2])
+    page  = int(parts[3]) if len(parts) > 3 else 0
+
+    user = await session.scalar(select(User).where(User.telegram_id == tg_id))
+    if not user:
+        await cb.answer("Topilmadi!", show_alert=True)
+        return
+
+    b = InlineKeyboardBuilder()
+    for days, lbl in [(1,"1 kun"),(7,"7 kun"),(30,"1 oy"),(90,"3 oy"),(180,"6 oy"),(365,"1 yil")]:
+        b.button(text=lbl, callback_data=f"adm:subgive:{tg_id}:{days}:{page}")
+    b.button(text="◀️ Orqaga", callback_data=f"adm:user:{tg_id}:{page}")
+    b.adjust(3)
+
+    exp = user.trial_expires_at.strftime('%d.%m.%Y') if user.trial_expires_at else '—'
+    await cb.message.edit_text(
+        f"💎 <b>Obuna berish</b>\n\n"
+        f"👤 {user.full_name or '—'}\n"
+        f"📅 Hozirgi tugash: <b>{exp}</b>\n"
+        f"Holat: {_status(user)}\n\n"
+        "Necha kun obuna berish?",
+        reply_markup=b.as_markup(),
+        parse_mode="HTML",
+    )
+    await cb.answer()
+
+
+@router.callback_query(F.data.startswith("adm:subgive:"))
+async def adm_subgive(cb: CallbackQuery, session: AsyncSession) -> None:
+    if not is_admin(cb.from_user.id):
+        return
+    parts = cb.data.split(":")
+    tg_id = int(parts[2])
+    days  = int(parts[3])
+    page  = int(parts[4]) if len(parts) > 4 else 0
+
+    user = await session.scalar(select(User).where(User.telegram_id == tg_id))
+    if not user:
+        await cb.answer("Topilmadi!", show_alert=True)
+        return
+
+    user.is_premium = True
+    base = max(user.trial_expires_at or datetime.utcnow(), datetime.utcnow())
+    user.trial_expires_at = base + timedelta(days=days)
+    await session.commit()
+
+    try:
+        await cb.bot.send_message(
+            tg_id,
+            f"🎉 <b>Tabriklaymiz!</b>\n\n"
+            f"Sizga <b>{days} kunlik</b> premium obuna berildi!\n"
+            f"📅 Tugash sanasi: {user.trial_expires_at.strftime('%d.%m.%Y')}\n\n"
+            f"Endi barcha funksiyalardan to'liq foydalanishingiz mumkin! 🚀",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
+
+    await cb.answer(f"✅ {days} kun obuna berildi!", show_alert=True)
+    # Go back to user detail
+    await adm_user_detail(cb, session)
+
+
+# ──────────────────────────────────────────────────────────────
+# Message user
+# ──────────────────────────────────────────────────────────────
+
 @router.callback_query(F.data.startswith("adm:msg:"))
 async def adm_msg_start(cb: CallbackQuery, state: FSMContext) -> None:
     if not is_admin(cb.from_user.id):
         return
-    target_id = int(cb.data.split(":")[2])
+    parts = cb.data.split(":")
+    tg_id = int(parts[2])
+    page  = int(parts[3]) if len(parts) > 3 else 0
+
     await state.set_state(AdminFSM.waiting_message)
-    await state.update_data(target_tg_id=target_id)
+    await state.update_data(target_tg_id=tg_id, back_page=page)
     await cb.message.answer(
-        f"✉️ <b>Foydalanuvchiga xabar yuborish</b>\n\n"
-        f"ID: <code>{target_id}</code>\n\n"
-        "Xabaringizni yozing:",
+        f"✉️ <b>Foydalanuvchiga xabar</b>\n\n"
+        f"ID: <code>{tg_id}</code>\n\n"
+        "Xabaringizni yozing (bekor qilish: /admin):",
         parse_mode="HTML",
     )
     await cb.answer()
@@ -233,117 +327,41 @@ async def adm_msg_send(message: Message, state: FSMContext) -> None:
     if not is_admin(message.from_user.id):
         return
     data = await state.get_data()
-    target_tg_id = data["target_tg_id"]
     await state.clear()
     try:
         await message.bot.send_message(
-            target_tg_id,
+            data["target_tg_id"],
             f"📩 <b>Admin xabari:</b>\n\n{message.text}",
             parse_mode="HTML",
         )
         await message.answer("✅ Xabar muvaffaqiyatli yuborildi!")
     except Exception as e:
-        await message.answer(f"❌ Xabar yuborishda xatolik: {e}")
+        await message.answer(f"❌ Xatolik: {e}")
 
 
 # ──────────────────────────────────────────────────────────────
-# Give subscription
+# Block / Unblock user
 # ──────────────────────────────────────────────────────────────
 
-@router.callback_query(F.data == "adm:give")
-async def adm_give_start(cb: CallbackQuery, state: FSMContext) -> None:
+@router.callback_query(F.data.startswith("adm:block:"))
+async def adm_block(cb: CallbackQuery, session: AsyncSession) -> None:
     if not is_admin(cb.from_user.id):
         return
-    await state.set_state(AdminFSM.waiting_user_id)
-    await cb.message.answer(
-        "➕ <b>Obuna berish</b>\n\n"
-        "Foydalanuvchining Telegram ID yoki telefon raqamini kiriting:\n"
-        "<i>Masalan: 123456789 yoki +998901234567</i>",
-        parse_mode="HTML",
-    )
-    await cb.answer()
+    parts = cb.data.split(":")
+    tg_id = int(parts[2])
+    page  = int(parts[3]) if len(parts) > 3 else 0
 
-
-@router.message(AdminFSM.waiting_user_id)
-async def adm_give_id(message: Message, state: FSMContext, session: AsyncSession) -> None:
-    if not is_admin(message.from_user.id):
-        return
-
-    q = message.text.strip()
-    user = None
-
-    digits = q.lstrip("+")
-    if digits.isdigit():
-        if len(digits) >= 11:  # phone
-            user = await session.scalar(select(User).where(User.phone == digits))
-        else:                   # telegram id
-            user = await session.scalar(select(User).where(User.telegram_id == int(digits)))
-
+    user = await session.scalar(select(User).where(User.telegram_id == tg_id))
     if not user:
-        await message.answer("❌ Foydalanuvchi topilmadi. Qaytadan kiriting:")
+        await cb.answer("Topilmadi!", show_alert=True)
         return
 
-    now = datetime.utcnow()
-    await state.update_data(uid=user.id, tg_id=user.telegram_id, name=user.full_name or "—")
-    await state.set_state(AdminFSM.waiting_days)
+    user.is_active = not user.is_active
+    await session.commit()
 
-    b = InlineKeyboardBuilder()
-    for days, lbl in [(1,"1 kun"),(7,"7 kun"),(30,"1 oy"),(90,"3 oy"),(180,"6 oy"),(365,"1 yil")]:
-        b.button(text=lbl, callback_data=f"adm:d:{days}")
-    b.button(text="❌ Bekor", callback_data="adm:cancel_give")
-    b.adjust(3)
-
-    exp = user.trial_expires_at.strftime('%d.%m.%Y %H:%M') if user.trial_expires_at else '—'
-    await message.answer(
-        f"✅ Topildi: <b>{user.full_name or '—'}</b>\n"
-        f"📱 Telefon: +{user.phone or '?'}\n"
-        f"📅 Joriy tugash: {exp}\n"
-        f"Holat: {_user_status(user)}\n\n"
-        "Necha kun obuna berish?",
-        reply_markup=b.as_markup(),
-        parse_mode="HTML",
-    )
-
-
-@router.callback_query(F.data.startswith("adm:d:"), AdminFSM.waiting_days)
-async def adm_give_days(cb: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
-    days = int(cb.data.split(":")[2])
-    data = await state.get_data()
-    await state.clear()
-
-    user = await session.get(User, data["uid"])
-    if user:
-        user.is_premium = True
-        base = max(user.trial_expires_at or datetime.utcnow(), datetime.utcnow())
-        user.trial_expires_at = base + timedelta(days=days)
-        await session.commit()
-
-        # Notify user in Telegram
-        try:
-            await cb.bot.send_message(
-                data["tg_id"],
-                f"🎉 <b>Tabriklaymiz!</b>\n\n"
-                f"Sizga <b>{days} kunlik</b> premium obuna berildi!\n"
-                f"📅 Tugash sanasi: {user.trial_expires_at.strftime('%d.%m.%Y')}\n\n"
-                f"Endi barcha funksiyalardan to'liq foydalanishingiz mumkin! 🚀",
-                parse_mode="HTML",
-            )
-        except Exception:
-            pass
-
-    await cb.message.edit_text(
-        f"✅ <b>{data['name']}</b> ga <b>{days} kun</b> obuna berildi!",
-        reply_markup=None,
-        parse_mode="HTML",
-    )
-    await cb.answer("✅ Obuna berildi!")
-
-
-@router.callback_query(F.data == "adm:cancel_give")
-async def adm_cancel_give(cb: CallbackQuery, state: FSMContext) -> None:
-    await state.clear()
-    await cb.message.edit_text("❌ Bekor qilindi.", reply_markup=None)
-    await cb.answer()
+    status_text = "bloklandi" if not user.is_active else "blokdan chiqarildi"
+    await cb.answer(f"✅ Foydalanuvchi {status_text}!", show_alert=True)
+    await adm_user_detail(cb, session)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -359,14 +377,15 @@ async def adm_pays(cb: CallbackQuery, session: AsyncSession) -> None:
         select(PaymentRequest)
         .where(PaymentRequest.status == "pending")
         .order_by(PaymentRequest.created_at.desc())
-        .limit(10)
+        .limit(20)
     ))
 
     if not pays:
+        b = InlineKeyboardBuilder()
+        b.button(text="◀️ Orqaga", callback_data="adm:main")
         await cb.message.edit_text(
             "💳 Kutilayotgan to'lovlar yo'q.",
-            reply_markup=back_kb(),
-            parse_mode="HTML",
+            reply_markup=b.as_markup(),
         )
         await cb.answer()
         return
@@ -374,12 +393,12 @@ async def adm_pays(cb: CallbackQuery, session: AsyncSession) -> None:
     b = InlineKeyboardBuilder()
     for p in pays:
         user = await session.get(User, p.user_id)
-        name = user.full_name if user else "?"
+        name = (user.full_name if user else None) or "?"
         b.button(
-            text=f"✅ #{p.id} — {name} ({p.tariff_name})",
+            text=f"✅ {name} — {p.tariff_name or '?'}",
             callback_data=f"adm:pay_approve:{p.id}",
         )
-        b.button(text=f"❌ Rad #{p.id}", callback_data=f"adm:pay_reject:{p.id}")
+        b.button(text=f"❌ Rad", callback_data=f"adm:pay_reject:{p.id}")
     b.button(text="◀️ Orqaga", callback_data="adm:main")
     b.adjust(2)
 
@@ -431,5 +450,16 @@ async def adm_pay_reject(cb: CallbackQuery, session: AsyncSession) -> None:
         pr.status = "rejected"
         pr.processed_at = datetime.utcnow()
         await session.commit()
+        user = await session.get(User, pr.user_id)
+        if user:
+            try:
+                await cb.bot.send_message(
+                    user.telegram_id,
+                    "❌ <b>To'lovingiz rad etildi.</b>\n\n"
+                    "Savol bo'lsa admin bilan bog'laning.",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
     await cb.answer("❌ Rad etildi!")
     await adm_pays(cb, session)
