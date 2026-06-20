@@ -295,7 +295,7 @@ async def adm_subgive(cb: CallbackQuery, session: AsyncSession) -> None:
         pass
 
     await cb.answer(f"✅ {days} kun obuna berildi!", show_alert=True)
-    # Go back to user detail
+    cb.data = f"adm:user:{tg_id}:{page}"
     await adm_user_detail(cb, session)
 
 
@@ -361,6 +361,7 @@ async def adm_block(cb: CallbackQuery, session: AsyncSession) -> None:
 
     status_text = "bloklandi" if not user.is_active else "blokdan chiqarildi"
     await cb.answer(f"✅ Foydalanuvchi {status_text}!", show_alert=True)
+    cb.data = f"adm:user:{tg_id}:{page}"
     await adm_user_detail(cb, session)
 
 

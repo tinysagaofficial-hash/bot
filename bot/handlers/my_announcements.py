@@ -119,6 +119,8 @@ async def my_announcements(message: Message, session: AsyncSession) -> None:
 
 async def _get_ann_for_user(cb: CallbackQuery, ann_id: int, session: AsyncSession):
     user = await session.scalar(select(User).where(User.telegram_id == cb.from_user.id))
+    if not user:
+        return None
     ann = await session.scalar(
         select(Announcement).where(
             Announcement.id == ann_id,

@@ -72,6 +72,9 @@ async def add_account(message: Message, state: FSMContext, session: AsyncSession
 
 @router.message(AccountFSM.phone)
 async def process_phone(message: Message, state: FSMContext) -> None:
+    if not message.text:
+        await message.answer("⚠️ Iltimos, telefon raqamingizni yozing. Misol: +998901234567")
+        return
     if message.text == CANCEL:
         await _cancel(message, state)
         return
@@ -109,6 +112,9 @@ async def process_phone(message: Message, state: FSMContext) -> None:
 
 @router.message(AccountFSM.code)
 async def process_code(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    if not message.text:
+        await message.answer("⚠️ Iltimos, kodni matn formatida yuboring. Misol: <code>1.2345</code>", parse_mode="HTML")
+        return
     if message.text == CANCEL:
         await manager.cancel_login(message.from_user.id)
         await _cancel(message, state)

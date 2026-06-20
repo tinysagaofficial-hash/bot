@@ -29,6 +29,9 @@ async def cmd_start(message: Message, state: FSMContext, session: AsyncSession) 
     user = await session.scalar(select(User).where(User.telegram_id == message.from_user.id))
 
     if user:
+        if not user.is_active and not _is_admin(message.from_user.id):
+            await message.answer("🚫 Sizning akkauntingiz bloklangan. Admin bilan bog'laning: " + ADMIN_USERNAME)
+            return
         extra = "\n\n🔐 <b>Siz admin sifatida kirgansiz.</b> '🔐 Admin Panel' tugmasini bosing." if _is_admin(message.from_user.id) else ""
         await message.answer(
             f"👋 Xush kelibsiz, <b>{message.from_user.first_name}</b>!{extra}\n\n"
