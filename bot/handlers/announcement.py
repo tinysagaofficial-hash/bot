@@ -290,6 +290,12 @@ async def select_all_groups(cb: CallbackQuery, state: FSMContext) -> None:
     await cb.answer()
 
 
+@router.message(AnnounceFSM.select_groups)
+async def cancel_select_groups(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await message.answer("❌ Bekor qilindi.", reply_markup=main_menu())
+
+
 @router.callback_query(AnnounceFSM.select_groups, F.data == "grp:back")
 async def back_from_groups(cb: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
@@ -323,6 +329,12 @@ async def confirm_groups(cb: CallbackQuery, state: FSMContext) -> None:
 # ──────────────────────────────────────────────────────────────
 # Interval selection
 # ──────────────────────────────────────────────────────────────
+
+@router.message(AnnounceFSM.select_interval)
+async def cancel_select_interval(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await message.answer("❌ Bekor qilindi.", reply_markup=main_menu())
+
 
 @router.callback_query(AnnounceFSM.select_interval, F.data == "int:back")
 async def back_from_interval(cb: CallbackQuery, state: FSMContext) -> None:
