@@ -7,24 +7,33 @@ from aiogram.types import Message
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import TRIAL_HOURS
+from config import TRIAL_HOURS, ADMIN_IDS, ADMIN_USERNAME
 from database.models import User
-from bot.keyboards.reply import main_menu, phone_share
+from bot.keyboards.reply import main_menu, admin_menu, phone_share
 
 router = Router()
 
 
+def _is_admin(tg_id: int) -> bool:
+    return tg_id in ADMIN_IDS
+
+
+def _get_menu(tg_id: int):
+    return admin_menu() if _is_admin(tg_id) else main_menu()
+
+
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext, session: AsyncSession) -> None:
-    await state.clear()  # Always clear any stuck FSM state on /start
+    await state.clear()
 
     user = await session.scalar(select(User).where(User.telegram_id == message.from_user.id))
 
     if user:
+        extra = "\n\n🔐 <b>Siz admin sifatida kirgansiz.</b> '🔐 Admin Panel' tugmasini bosing." if _is_admin(message.from_user.id) else ""
         await message.answer(
-            f"👋 Xush kelibsiz, <b>{message.from_user.first_name}</b>!\n\n"
+            f"👋 Xush kelibsiz, <b>{message.from_user.first_name}</b>!{extra}\n\n"
             "Quyidagi tugmalardan birini tanlang:",
-            reply_markup=main_menu(),
+            reply_markup=_get_menu(message.from_user.id),
             parse_mode="HTML",
         )
         return
@@ -55,7 +64,7 @@ async def handle_contact(message: Message, session: AsyncSession) -> None:
 
     existing = await session.scalar(select(User).where(User.telegram_id == message.from_user.id))
     if existing:
-        await message.answer("✅ Siz allaqachon ro'yxatdan o'tgansiz!", reply_markup=main_menu())
+        await message.answer("✅ Siz allaqachon ro'yxatdan o'tgansiz!", reply_markup=_get_menu(message.from_user.id))
         return
 
     phone = contact.phone_number.replace("+", "").replace(" ", "")
@@ -75,8 +84,27 @@ async def handle_contact(message: Message, session: AsyncSession) -> None:
         "🎉 <b>Tabriklaymiz! Siz ro'yxatdan o'tdingiz!</b>\n\n"
         f"📱 Telefon: +{phone}\n"
         f"🎁 Sinov muddati: {TRIAL_HOURS} soat\n\n"
-        "Siz botning barcha funksiyalaridan foydalanishingiz mumkin!\n\n"
         "Boshlash uchun '➕ Akkaunt qo'shish' tugmasini bosing.",
-        reply_markup=main_menu(),
+        reply_markup=_get_menu(message.from_user.id),
+        parse_mode="HTML",
+    )
+
+
+@router.message(F.text == "🔐 Admin Panel")
+async def admin_panel_btn(message: Message) -> None:
+    if not _is_admin(message.from_user.id):
+        return
+    from aiogram.filters import Command
+    from bot.handlers.admin_panel import admin_cmd
+    await admin_cmd(message)
+
+
+@router.message(F.text == "📞 Admin bilan bog'lanish")
+async def contact_admin(message: Message) -> None:
+    await message.answer(
+        f"📞 <b>Admin bilan bog'lanish</b>\n\n"
+        f"Savol yoki muammo bo'lsa, admin bilan to'g'ridan to'g'ri bog'laning:\n\n"
+        f"👤 {ADMIN_USERNAME}\n\n"
+        f"Obuna va to'lov masalalarida ham shu manzilga murojaat qiling.",
         parse_mode="HTML",
     )

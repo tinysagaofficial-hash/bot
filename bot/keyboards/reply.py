@@ -18,6 +18,28 @@ def main_menu() -> ReplyKeyboardMarkup:
                 KeyboardButton(text="💎 Obunalarim"),
                 KeyboardButton(text="➕ Akkaunt qo'shish"),
             ],
+            [
+                KeyboardButton(text="📞 Admin bilan bog'lanish"),
+            ],
+        ],
+        resize_keyboard=True,
+    )
+
+
+def admin_menu() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [
+                KeyboardButton(text="📨 Elon berish"),
+                KeyboardButton(text="📋 Mening elonlarim"),
+            ],
+            [
+                KeyboardButton(text="💎 Obunalarim"),
+                KeyboardButton(text="➕ Akkaunt qo'shish"),
+            ],
+            [
+                KeyboardButton(text="🔐 Admin Panel"),
+            ],
         ],
         resize_keyboard=True,
     )
