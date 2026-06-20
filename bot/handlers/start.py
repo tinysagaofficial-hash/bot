@@ -58,7 +58,7 @@ async def cmd_start(message: Message, state: FSMContext, session: AsyncSession) 
 async def handle_contact(message: Message, session: AsyncSession) -> None:
     contact = message.contact
 
-    if contact.user_id != message.from_user.id:
+    if contact.user_id and contact.user_id != message.from_user.id:
         await message.answer("⚠️ Iltimos, o'z raqamingizni yuboring!")
         return
 
