@@ -34,8 +34,9 @@ router = Router()
 
 
 class AdminFSM(StatesGroup):
-    waiting_user_id = State()
+    waiting_user_id  = State()
     waiting_days     = State()
+    waiting_message  = State()
 
 
 # ──────────────────────────────────────────────────────────────
@@ -168,12 +169,55 @@ async def adm_users(cb: CallbackQuery, session: AsyncSession) -> None:
             f"— {u.full_name or '—'} | +{u.phone or '?'} | {exp}"
         )
 
+    b = InlineKeyboardBuilder()
+    for u in users:
+        b.button(
+            text=f"✉️ {u.full_name or u.telegram_id}",
+            callback_data=f"adm:msg:{u.telegram_id}",
+        )
+    b.button(text="◀️ Orqaga", callback_data="adm:main")
+    b.adjust(2)
+
     await cb.message.edit_text(
         "\n".join(lines),
-        reply_markup=back_kb(),
+        reply_markup=b.as_markup(),
         parse_mode="HTML",
     )
     await cb.answer()
+
+
+@router.callback_query(F.data.startswith("adm:msg:"))
+async def adm_msg_start(cb: CallbackQuery, state: FSMContext) -> None:
+    if not is_admin(cb.from_user.id):
+        return
+    target_id = int(cb.data.split(":")[2])
+    await state.set_state(AdminFSM.waiting_message)
+    await state.update_data(target_tg_id=target_id)
+    await cb.message.answer(
+        f"✉️ <b>Foydalanuvchiga xabar yuborish</b>\n\n"
+        f"ID: <code>{target_id}</code>\n\n"
+        "Xabaringizni yozing:",
+        parse_mode="HTML",
+    )
+    await cb.answer()
+
+
+@router.message(AdminFSM.waiting_message)
+async def adm_msg_send(message: Message, state: FSMContext) -> None:
+    if not is_admin(message.from_user.id):
+        return
+    data = await state.get_data()
+    target_tg_id = data["target_tg_id"]
+    await state.clear()
+    try:
+        await message.bot.send_message(
+            target_tg_id,
+            f"📩 <b>Admin xabari:</b>\n\n{message.text}",
+            parse_mode="HTML",
+        )
+        await message.answer("✅ Xabar muvaffaqiyatli yuborildi!")
+    except Exception as e:
+        await message.answer(f"❌ Xabar yuborishda xatolik: {e}")
 
 
 # ──────────────────────────────────────────────────────────────

@@ -121,8 +121,8 @@ async def process_code(message: Message, state: FSMContext, session: AsyncSessio
         return
 
     code = re.sub(r"\D", "", message.text.strip())
-    if len(code) < 4:
-        await message.answer("⚠️ Kod 5 ta raqamdan iborat. Qaytadan kiriting.")
+    if len(code) < 5:
+        await message.answer("⚠️ Kod 5 ta raqamdan iborat bo'lishi kerak. Qaytadan kiriting.\n\nMisol: <code>1.2345</code>", parse_mode="HTML")
         return
 
     try:
@@ -198,7 +198,7 @@ async def _save_account_and_groups(
 
     await session.flush()
 
-    await message.answer("⏳ Guruhlar yuklanmoqda...")
+    loading_msg = await message.answer("⏳ Guruhlar yuklanmoqda... (30-60 soniya kutish mumkin)")
 
     try:
         client = await manager.get_client(account.id, session_string)
