@@ -120,11 +120,10 @@ async def _send_one(ann_id: int, scheduled_time: datetime, session_factory: asyn
         finally:
             await manager.disconnect_client(account.id)
 
-        # Use INTENDED send time for next interval, not actual completion time
         ann.last_sent_at = datetime.utcnow()
-        ann.next_send_at = scheduled_time + timedelta(minutes=ann.interval_minutes)
+        # next_send_at was already advanced by run_scheduler before this task started
         await session.commit()
-        logger.info("Ann %s next send at %s", ann.id, ann.next_send_at)
+        logger.info("Ann %s sent, next send at %s", ann.id, ann.next_send_at)
 
 
 async def run_scheduler(session_factory: async_sessionmaker, bot: Bot) -> None:
@@ -132,7 +131,7 @@ async def run_scheduler(session_factory: async_sessionmaker, bot: Bot) -> None:
     while True:
         await asyncio.sleep(SCHEDULER_INTERVAL)
         try:
-            # Fetch due announcements in a short-lived session
+            due_list = []
             async with session_factory() as session:
                 now = datetime.utcnow()
                 due = list(await session.scalars(
@@ -142,15 +141,24 @@ async def run_scheduler(session_factory: async_sessionmaker, bot: Bot) -> None:
                         Announcement.next_send_at <= now,
                     )
                 ))
-                # Capture id + scheduled_time before session closes
-                due_list = [(ann.id, ann.next_send_at) for ann in due]
+                for ann in due:
+                    scheduled_time = ann.next_send_at
+                    # Advance next_send_at NOW before spawning tasks.
+                    # Without this, if _send_one takes longer than SCHEDULER_INTERVAL
+                    # the next tick re-picks the same announcement → double send.
+                    next_send = scheduled_time + timedelta(minutes=ann.interval_minutes)
+                    while next_send <= now:  # skip missed intervals if bot was offline
+                        next_send += timedelta(minutes=ann.interval_minutes)
+                    ann.next_send_at = next_send
+                    due_list.append((ann.id, scheduled_time))
+                if due_list:
+                    await session.commit()
 
             if not due_list:
                 continue
 
             logger.info("Scheduler: %d announcement(s) due — running in parallel", len(due_list))
 
-            # Run ALL due announcements simultaneously — no more waiting in line
             tasks = [
                 asyncio.create_task(
                     _send_one(ann_id, scheduled_time, session_factory, bot)
