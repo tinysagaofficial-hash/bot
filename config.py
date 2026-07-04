@@ -12,7 +12,7 @@ DATABASE_URL: str = os.getenv(
 ADMIN_IDS: list[int] = [
     int(x) for x in os.getenv("ADMIN_IDS", "705457366").split(",") if x.strip()
 ]
-ADMIN_USERNAME: str = os.getenv("ADMIN_USERNAME", "@SIZNING_USERNAME")
+ADMIN_USERNAME: str = os.getenv("ADMIN_USERNAME", "@ibrokhimov_abdullah")
 TRIAL_HOURS: int = int(os.getenv("TRIAL_HOURS", "48"))
 
 # Delay between group sends (seconds) — keeps account safe from spam detection
@@ -22,8 +22,8 @@ SEND_DELAY: float = float(os.getenv("SEND_DELAY", "2.5"))
 SCHEDULER_INTERVAL: int = 30
 
 # Payment info (shown in Obunalarim → Obunani uzaytirish)
-PAYMENT_CARD: str = os.getenv("PAYMENT_CARD", "0000 0000 0000 0000")
-CARD_OWNER: str = os.getenv("CARD_OWNER", "SIZNING ISMINGIZ")
+PAYMENT_CARD: str = os.getenv("PAYMENT_CARD", "6262 5705 4897 9188")
+CARD_OWNER: str = os.getenv("CARD_OWNER", "ABDULLOX IBROXIMOV")
 
 # Admin web panel credentials
 ADMIN_PANEL_USER: str = os.getenv("ADMIN_PANEL_USER", "admin")
