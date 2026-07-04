@@ -57,15 +57,15 @@ pip install -r requirements.txt
 # ── 7. Create .env ───────────────────────
 echo "[7/7] Creating .env file..."
 cat > .env <<EOF
-BOT_TOKEN=8522833323:AAGDy4cHVnugYF2_FPtnzeP1sYqSxtUdr4g
+BOT_TOKEN=8534769147:AAHjP1xC1c4Vj7BbyHR9pCoi5BRdKOUdZDo
 API_ID=35514737
 API_HASH=86082d0492087b10ff85b2a443e7d26f
 DATABASE_URL=postgresql+asyncpg://elonbot:elonbot2025@localhost/elonbot
 REDIS_URL=redis://localhost:6379/0
-ADMIN_IDS=8132072022,705457366
-TRIAL_HOURS=24
-PAYMENT_CARD=9860 0803 2665 3245
-CARD_OWNER=Ibrohimhalilullo Habibullayev
+ADMIN_IDS=705457366
+TRIAL_HOURS=48
+PAYMENT_CARD=0000 0000 0000 0000
+CARD_OWNER=SIZNING ISMINGIZ
 ADMIN_PANEL_PORT=8080
 EOF
 

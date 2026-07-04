@@ -4,16 +4,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BOT_TOKEN: str = os.getenv(
-    "BOT_TOKEN", "8522833323:AAGDy4cHVnugYF2_FPtnzeP1sYqSxtUdr4g")
+    "BOT_TOKEN", "8534769147:AAHjP1xC1c4Vj7BbyHR9pCoi5BRdKOUdZDo")
 API_ID: int = int(os.getenv("API_ID", "35514737"))
 API_HASH: str = os.getenv("API_HASH", "86082d0492087b10ff85b2a443e7d26f")
 DATABASE_URL: str = os.getenv(
     "DATABASE_URL", "sqlite+aiosqlite:////data/elon_bot.db")
 ADMIN_IDS: list[int] = [
-    int(x) for x in os.getenv("ADMIN_IDS", "8132072022,705457366").split(",") if x.strip()
+    int(x) for x in os.getenv("ADMIN_IDS", "705457366").split(",") if x.strip()
 ]
-ADMIN_USERNAME: str = os.getenv("ADMIN_USERNAME", "@Halilulloh2525")
-TRIAL_HOURS: int = int(os.getenv("TRIAL_HOURS", "24"))
+ADMIN_USERNAME: str = os.getenv("ADMIN_USERNAME", "@SIZNING_USERNAME")
+TRIAL_HOURS: int = int(os.getenv("TRIAL_HOURS", "48"))
 
 # Delay between group sends (seconds) — keeps account safe from spam detection
 SEND_DELAY: float = float(os.getenv("SEND_DELAY", "2.5"))
@@ -22,8 +22,8 @@ SEND_DELAY: float = float(os.getenv("SEND_DELAY", "2.5"))
 SCHEDULER_INTERVAL: int = 30
 
 # Payment info (shown in Obunalarim → Obunani uzaytirish)
-PAYMENT_CARD: str = os.getenv("PAYMENT_CARD", "9860 0803 2665 3245")
-CARD_OWNER: str = os.getenv("CARD_OWNER", "Ibrohimhalilullo Habibullayev")
+PAYMENT_CARD: str = os.getenv("PAYMENT_CARD", "0000 0000 0000 0000")
+CARD_OWNER: str = os.getenv("CARD_OWNER", "SIZNING ISMINGIZ")
 
 # Admin web panel credentials
 ADMIN_PANEL_USER: str = os.getenv("ADMIN_PANEL_USER", "admin")
